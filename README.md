@@ -48,6 +48,22 @@ sudo systemctl restart jellyfin
 - **Merge Mode**: Settings can be merged (only update non-null values) or replaced entirely
 - **Flexible Schema**: Uses nullable fields to support different client features
 - **Jellyseerr Integration**: Admin-configurable Jellyseerr server URL with user-controlled API keys
+- **RomM Server Integration**: Stream game box art directly from your RomM server on-the-fly without downloading duplicate image files to disk
+
+## RomM Server Setup
+
+Moonfin supports streaming box art from a self-hosted [RomM](https://github.com/romm-app/romm) server (version 5.x+).
+
+1. Go to Jellyfin Dashboard → Plugins → Moonfin.
+2. Under **RomM Server Integration**:
+   - **RomM URL**: Enter your RomM server address (e.g., `http://192.168.1.119:8095`).
+   - **RomM Username / Password**: Enter HTTP Basic Auth credentials if required by your RomM instance. Credentials are kept secure and are never logged or exposed via API.
+   - **Art Source Strategy**:
+     - `Plugin cache (current)`: Standard Jellyfin image handling.
+     - `RomM first, fall back to cache` (Default): Proxies cover art directly from RomM when a match exists; falls back quietly to cached or libretro art if unmapped or unreachable.
+     - `RomM only`: Exclusively streams art from RomM without local image caching.
+3. Click **Sync with RomM** to run an immediate game matching sync. Matching uses ROM file names first, followed by CRC32 or MD5 hashes.
+4. Click **Clear cached art RomM covers** to inspect and delete local cached box art for games that RomM now provides, freeing disk space.
 
 ## Admin Configuration
 
@@ -58,6 +74,10 @@ Configure in Jellyfin Dashboard → Plugins → Moonfin:
 | `EnableSettingsSync` | `true` | Enable cross-client settings synchronization |
 | `JellyseerrEnabled` | `false` | Enable Jellyseerr integration in Moonfin clients |
 | `JellyseerrUrl` | `null` | Jellyseerr server URL (e.g., `https://jellyseerr.example.com`) |
+| `RomMUrl` | `null` | RomM server URL (e.g., `http://192.168.1.119:8095`) |
+| `RomMUsername` | `null` | RomM Basic Auth username |
+| `RomMPassword` | `null` | RomM Basic Auth password (never logged or exposed via JSON API) |
+| `RomMArtSource` | `romm_first` | Art source strategy (`cache`, `romm_first`, or `romm_only`) |
 
 ## API Endpoints
 

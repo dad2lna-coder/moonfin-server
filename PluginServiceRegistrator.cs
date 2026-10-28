@@ -15,6 +15,9 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     {
         serviceCollection.AddSingleton<MoonfinSettingsService>();
         serviceCollection.AddSingleton<JellyseerrSessionService>();
+        serviceCollection.AddSingleton<RomMClient>();
+        serviceCollection.AddSingleton<RomMSyncService>();
+        serviceCollection.AddSingleton<RomMImageProvider>();
         serviceCollection.AddHttpClient();
     }
 }
