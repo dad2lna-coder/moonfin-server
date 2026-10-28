@@ -53,6 +53,53 @@
                     </div>
 
                     <div class="verticalSection">
+                        <h3 class="sectionTitle">RomM Server Integration</h3>
+                        <div class="fieldDescription" style="margin-bottom: 1em;">
+                            Connect to your self-hosted RomM server to stream game box art directly without storing local image copies.
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RomMUrl">RomM URL</label>
+                            <input type="url" id="RomMUrl" is="emby-input" placeholder="http://192.168.1.119:8095" />
+                            <div class="fieldDescription">
+                                The base URL of your RomM server.
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RomMUsername">RomM Username</label>
+                            <input type="text" id="RomMUsername" is="emby-input" placeholder="Optional HTTP Basic Auth username" />
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="RomMPassword">RomM Password</label>
+                            <input type="password" id="RomMPassword" is="emby-input" placeholder="Leave blank to keep current password" />
+                        </div>
+
+                        <div class="selectContainer">
+                            <label class="selectLabel" for="RomMArtSource">Art Source Strategy</label>
+                            <select id="RomMArtSource" is="emby-select" class="emby-select-withcolor emby-select">
+                                <option value="cache">Plugin cache (current)</option>
+                                <option value="romm_first">RomM first, fall back to cache</option>
+                                <option value="romm_only">RomM only</option>
+                            </select>
+                            <div class="fieldDescription">
+                                Strategy for fetching box art. "RomM first" proxies art from RomM when matched, falling back to cached/libretro art.
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 1.5em; display: flex; gap: 1em; flex-wrap: wrap;">
+                            <button is="emby-button" type="button" id="btnSyncRomM" class="raised">
+                                <span>Sync with RomM</span>
+                            </button>
+                            <button is="emby-button" type="button" id="btnClearRomMCache" class="button-accent raised">
+                                <span>Clear cached art RomM covers</span>
+                            </button>
+                        </div>
+                        <div id="rommStatusMsg" style="margin-top: 0.5em; font-style: italic;"></div>
+                    </div>
+
+                    <div class="verticalSection">
                         <h3 class="sectionTitle">Web Plugin Status</h3>
                         <div class="fieldDescription" style="margin-bottom: 1em;">
                             <p>The Moonfin web UI is served from:</p>
@@ -90,7 +137,51 @@
                     document.querySelector('#EnableSettingsSync').checked = config.EnableSettingsSync;
                     document.querySelector('#JellyseerrEnabled').checked = config.JellyseerrEnabled;
                     document.querySelector('#JellyseerrUrl').value = config.JellyseerrUrl || '';
+                    document.querySelector('#RomMUrl').value = config.RomMUrl || '';
+                    document.querySelector('#RomMUsername').value = config.RomMUsername || '';
+                    document.querySelector('#RomMPassword').value = '';
+                    document.querySelector('#RomMArtSource').value = config.RomMArtSource || 'romm_first';
                     Dashboard.hideLoadingMsg();
+                });
+
+                document.querySelector('#btnSyncRomM').addEventListener('click', function() {
+                    var statusEl = document.querySelector('#rommStatusMsg');
+                    statusEl.innerText = 'Syncing with RomM...';
+                    ApiClient.ajax({
+                        type: 'POST',
+                        url: ApiClient.getUrl('Moonfin/RomM/Sync')
+                    }).then(function(res) {
+                        var data = JSON.parse(res);
+                        statusEl.innerText = 'Sync complete. Matched ' + (data.matchedCount || 0) + ' of ' + (data.totalGamesCount || 0) + ' games.';
+                    }).catch(function(err) {
+                        statusEl.innerText = 'Sync failed. Check logs or RomM credentials.';
+                    });
+                });
+
+                document.querySelector('#btnClearRomMCache').addEventListener('click', function() {
+                    var statusEl = document.querySelector('#rommStatusMsg');
+                    statusEl.innerText = 'Calculating space to free...';
+                    ApiClient.ajax({
+                        type: 'GET',
+                        url: ApiClient.getUrl('Moonfin/RomM/ClearCache/Preview')
+                    }).then(function(res) {
+                        var data = JSON.parse(res);
+                        var sizeMb = (data.bytesFreed / (1024 * 1024)).toFixed(2);
+                        if (confirm('This will delete ' + data.fileCount + ' cached cover images freeing ' + sizeMb + ' MB of space. Continue?')) {
+                            ApiClient.ajax({
+                                type: 'POST',
+                                url: ApiClient.getUrl('Moonfin/RomM/ClearCache/Execute')
+                            }).then(function(execRes) {
+                                var resultData = JSON.parse(execRes);
+                                var freedMb = (resultData.bytesFreed / (1024 * 1024)).toFixed(2);
+                                statusEl.innerText = 'Cleared ' + resultData.fileCount + ' cached files (' + freedMb + ' MB freed).';
+                            });
+                        } else {
+                            statusEl.innerText = 'Cache cleanup cancelled.';
+                        }
+                    }).catch(function(err) {
+                        statusEl.innerText = 'Failed to preview cache cleanup.';
+                    });
                 });
 
                 document.querySelector('#MoonfinConfigForm')
@@ -101,6 +192,16 @@
                             config.EnableSettingsSync = document.querySelector('#EnableSettingsSync').checked;
                             config.JellyseerrEnabled = document.querySelector('#JellyseerrEnabled').checked;
                             config.JellyseerrUrl = document.querySelector('#JellyseerrUrl').value || null;
+                            config.RomMUrl = document.querySelector('#RomMUrl').value || null;
+                            config.RomMUsername = document.querySelector('#RomMUsername').value || null;
+
+                            var passVal = document.querySelector('#RomMPassword').value;
+                            if (passVal) {
+                                config.RomMPassword = passVal;
+                            }
+
+                            config.RomMArtSource = document.querySelector('#RomMArtSource').value || 'romm_first';
+
                             ApiClient.updatePluginConfiguration(MoonfinConfig.pluginUniqueId, config).then(function(result) {
                                 Dashboard.processPluginConfigurationUpdateResult(result);
                             });
